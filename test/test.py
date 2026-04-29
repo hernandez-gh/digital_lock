@@ -2,39 +2,131 @@
 # SPDX-License-Identifier: Apache-2.0
 
 import cocotb
+from cocotb.triggers import RisingEdge, Timer
 from cocotb.clock import Clock
-from cocotb.triggers import ClockCycles
 
+CLK_PERIOD_NS = 83  # ~12 MHz
 
-@cocotb.test()
-async def test_project(dut):
-    dut._log.info("Start")
+# -----------------------
+# Helpers
+# -----------------------
 
-    # Set the clock period to 10 us (100 KHz)
-    clock = Clock(dut.clk, 10, unit="us")
-    cocotb.start_soon(clock.start())
-
-    # Reset
-    dut._log.info("Reset")
-    dut.ena.value = 1
+async def reset(dut):
+    dut.rst_n.value = 0
     dut.ui_in.value = 0
     dut.uio_in.value = 0
-    dut.rst_n.value = 0
-    await ClockCycles(dut.clk, 10)
+    dut.ena.value = 1
+
+    await Timer(200, units="ns")
     dut.rst_n.value = 1
+    await RisingEdge(dut.clk)
 
-    dut._log.info("Test project behavior")
 
-    # Set the input values you want to test
-    dut.ui_in.value = 20
-    dut.uio_in.value = 30
+async def send_code(dut, code):
+    """
+    code: int (2 bits)
+    ui[1] = enter
+    ui[3:2] = code_in
+    """
+    dut.ui_in.value = (code << 2) | (1 << 1)  # enter=1
+    await RisingEdge(dut.clk)
 
-    # Wait for one clock cycle to see the output values
-    await ClockCycles(dut.clk, 1)
+    dut.ui_in.value = (code << 2)  # enter=0
+    await RisingEdge(dut.clk)
 
-    # The following assersion is just an example of how to check the output values.
-    # Change it to match the actual expected output of your module:
-    assert dut.uo_out.value == 50
 
-    # Keep testing the module by changing the input values, waiting for
-    # one or more clock cycles, and asserting the expected output values.
+async def press_clear(dut):
+    dut.ui_in.value = 1 << 0  # clear=1
+    await RisingEdge(dut.clk)
+    dut.ui_in.value = 0
+    await RisingEdge(dut.clk)
+
+
+# -----------------------
+# TEST 1: Unlock correcto
+# -----------------------
+
+@cocotb.test()
+async def test_unlock_sequence(dut):
+    """Secuencia correcta debe desbloquear"""
+
+    cocotb.start_soon(Clock(dut.clk, CLK_PERIOD_NS, units="ns").start())
+    await reset(dut)
+
+    # Código correcto: 01 -> 10 -> 11 -> 00
+    await send_code(dut, 0b01)
+    await send_code(dut, 0b10)
+    await send_code(dut, 0b11)
+    await send_code(dut, 0b00)
+
+    await RisingEdge(dut.clk)
+
+    assert dut.uo_out.value & 0b001 == 1, "Unlock no se activó"
+
+
+# -----------------------
+# TEST 2: Error visible
+# -----------------------
+
+@cocotb.test()
+async def test_error_signal(dut):
+    """Error debe activarse en intento incorrecto"""
+
+    cocotb.start_soon(Clock(dut.clk, CLK_PERIOD_NS, units="ns").start())
+    await reset(dut)
+
+    # Primer intento incorrecto
+    await send_code(dut, 0b00)
+
+    await RisingEdge(dut.clk)
+
+    error = (dut.uo_out.value >> 1) & 1
+    assert error == 1, "Error no se activó"
+
+    # Esperar unos ciclos (debe seguir activo por el timer)
+    for _ in range(10):
+        await RisingEdge(dut.clk)
+        error = (dut.uo_out.value >> 1) & 1
+        assert error == 1, "Error no se mantiene suficiente tiempo"
+
+
+# -----------------------
+# TEST 3: Lock tras 3 fallos
+# -----------------------
+
+@cocotb.test()
+async def test_lock_after_3_attempts(dut):
+    """Después de 3 errores debe bloquear"""
+
+    cocotb.start_soon(Clock(dut.clk, CLK_PERIOD_NS, units="ns").start())
+    await reset(dut)
+
+    # 3 intentos incorrectos
+    for _ in range(3):
+        await send_code(dut, 0b00)
+
+    await RisingEdge(dut.clk)
+
+    locked = (dut.uo_out.value >> 2) & 1
+    assert locked == 1, "No se bloqueó después de 3 intentos"
+
+
+# -----------------------
+# TEST 4: Clear resetea todo
+# -----------------------
+
+@cocotb.test()
+async def test_clear_resets(dut):
+    """Clear debe resetear estado"""
+
+    cocotb.start_soon(Clock(dut.clk, CLK_PERIOD_NS, units="ns").start())
+    await reset(dut)
+
+    # Forzar error y estado
+    await send_code(dut, 0b00)
+
+    await press_clear(dut)
+
+    await RisingEdge(dut.clk)
+
+    assert dut.uo_out.value == 0, "Clear no reseteó salidas"

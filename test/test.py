@@ -50,7 +50,7 @@ async def press_clear(dut):
 async def test_unlock_sequence(dut):
     """Secuencia correcta debe desbloquear"""
 
-    cocotb.start_soon(Clock(dut.clk, CLK_PERIOD_NS, unit="ns")).start())
+    cocotb.start_soon(Clock(dut.clk, CLK_PERIOD_NS, unit="ns").start())
     await reset(dut)
 
     # Código correcto: 01 -> 10 -> 11 -> 00

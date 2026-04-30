@@ -11,7 +11,7 @@ You can also include images in this folder and reference them in the markdown. E
 
 The design is based on a synchronous FSM with the following states:
 
-- `S0` → انتظار primer código  
+- `S0` → primer código correcto  
 - `S1` → segundo código correcto  
 - `S2` → tercer código correcto  
 - `S3` → cuarto código correcto  

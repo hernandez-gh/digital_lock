@@ -19,6 +19,8 @@ module tt_um_digital_lock (
     wire unlock;
     wire error;
     wire locked;
+    wire [1:0] attempts_unused;
+    wire [2:0] state_dbg_unused;
 
     digital_lock u_lock (
         .clk(clk),
@@ -29,8 +31,8 @@ module tt_um_digital_lock (
         .unlock(unlock),
         .error(error),
         .locked(locked),
-        .attempts(),
-        .state_dbg()
+        .attempts(attempts_unused),
+        .state_dbg(state_dbg_unused)
     );
 
     assign uo_out = {5'b00000, locked, error, unlock};
@@ -38,6 +40,6 @@ module tt_um_digital_lock (
     assign uio_out = 8'b0;
     assign uio_oe  = 8'b0;
 
-    wire _unused = &{ena, uio_in};
+    wire _unused = &{ena, uio_in, ui_in[7:4]};
 
 endmodule

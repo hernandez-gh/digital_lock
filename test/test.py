@@ -17,7 +17,7 @@ async def reset(dut):
     dut.uio_in.value = 0
     dut.ena.value = 1
 
-    await Timer(200, units="ns")
+    await Timer(200, unit="ns")
     dut.rst_n.value = 1
     await RisingEdge(dut.clk)
 
@@ -50,7 +50,7 @@ async def press_clear(dut):
 async def test_unlock_sequence(dut):
     """Secuencia correcta debe desbloquear"""
 
-    cocotb.start_soon(Clock(dut.clk, CLK_PERIOD_NS, units="ns").start())
+    cocotb.start_soon(Clock(dut.clk, CLK_PERIOD_NS, unit="ns")).start())
     await reset(dut)
 
     # Código correcto: 01 -> 10 -> 11 -> 00
@@ -61,7 +61,7 @@ async def test_unlock_sequence(dut):
 
     await RisingEdge(dut.clk)
 
-    assert dut.uo_out.value & 0b001 == 1, "Unlock no se activó"
+    assert (dut.uo_out.value.integer & 0b001) == 1
 
 
 # -----------------------
@@ -72,7 +72,7 @@ async def test_unlock_sequence(dut):
 async def test_error_signal(dut):
     """Error debe activarse en intento incorrecto"""
 
-    cocotb.start_soon(Clock(dut.clk, CLK_PERIOD_NS, units="ns").start())
+    cocotb.start_soon(Clock(dut.clk, CLK_PERIOD_NS, unit="ns").start())
     await reset(dut)
 
     # Primer intento incorrecto
@@ -80,13 +80,13 @@ async def test_error_signal(dut):
 
     await RisingEdge(dut.clk)
 
-    error = (dut.uo_out.value >> 1) & 1
+    error = (dut.uo_out.value.integer >> 1) & 1
     assert error == 1, "Error no se activó"
 
     # Esperar unos ciclos (debe seguir activo por el timer)
     for _ in range(10):
         await RisingEdge(dut.clk)
-        error = (dut.uo_out.value >> 1) & 1
+        error = (dut.uo_out.value.integer >> 1) & 1
         assert error == 1, "Error no se mantiene suficiente tiempo"
 
 
@@ -98,7 +98,7 @@ async def test_error_signal(dut):
 async def test_lock_after_3_attempts(dut):
     """Después de 3 errores debe bloquear"""
 
-    cocotb.start_soon(Clock(dut.clk, CLK_PERIOD_NS, units="ns").start())
+    cocotb.start_soon(Clock(dut.clk, CLK_PERIOD_NS, unit="ns").start())
     await reset(dut)
 
     # 3 intentos incorrectos
@@ -107,7 +107,7 @@ async def test_lock_after_3_attempts(dut):
 
     await RisingEdge(dut.clk)
 
-    locked = (dut.uo_out.value >> 2) & 1
+    locked = (dut.uo_out.value.integer >> 2) & 1
     assert locked == 1, "No se bloqueó después de 3 intentos"
 
 
@@ -119,7 +119,7 @@ async def test_lock_after_3_attempts(dut):
 async def test_clear_resets(dut):
     """Clear debe resetear estado"""
 
-    cocotb.start_soon(Clock(dut.clk, CLK_PERIOD_NS, units="ns").start())
+    cocotb.start_soon(Clock(dut.clk, CLK_PERIOD_NS, unit="ns").start())
     await reset(dut)
 
     # Forzar error y estado

@@ -25,9 +25,9 @@ module tt_um_digital_lock (
     digital_lock u_lock (
         .clk(clk),
         .rst_n(rst_n),
-        .clear(ui_in[3]),
-        .enter(ui_in[2]),
-        .code_in(ui_in[1:0]),
+        .clear(ui_in[0]),
+        .enter(ui_in[1]),
+        .code_in(ui_in[3:2]),
         .unlock(unlock),
         .error(error),
         .locked(locked),
